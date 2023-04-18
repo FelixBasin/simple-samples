@@ -1,0 +1,70 @@
+version: '3'
+
+networks:
+  redis-network:
+    driver: bridge
+
+services:
+    redis_master:
+        image: ${CONTAINER}
+        container_name: redis-master
+        networks: 
+            - redis-network
+        ports:
+            - ${MASTER_PORT}:6379
+        command: sh -c "redis-server 
+             --bind 0.0.0.0
+             --protected-mode no
+            "
+        healthcheck:
+            test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+            interval: 1s
+            timeout: 3s
+            retries: 30
+
+    redis_replica:
+        image: ${CONTAINER}
+        container_name: redis-replica
+        networks:
+            - redis-network
+        ports:
+            - ${REPLICA_PORT}:6379
+        command: sh -c "redis-server
+             --bind 0.0.0.0
+             --protected-mode no
+             --slaveof ${EXPOSE_IP} ${MASTER_PORT}
+            "
+        depends_on:
+            - redis_master
+        healthcheck:
+          test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+          interval: 1s
+          timeout: 3s
+          retries: 30
+
+    redis_sentinel:
+        image: ${CONTAINER}
+        container_name: redis-sentinel
+        networks:
+            - redis-network
+        ports:
+            - ${SENTINEL_PORT}:${SENTINEL_PORT}
+        command: sh -c " echo -e \"
+            protected-mode no \\n \
+            port ${SENTINEL_PORT} \\n \
+            daemonize no \\n \
+            pidfile /var/run/redis-sentinel.pid \\n \
+            logfile \\\"\\\" \\n \
+            dir /tmp \\n \
+            sentinel monitor mymaster ${EXPOSE_IP} ${MASTER_PORT} 2 \\n \
+            sentinel down-after-milliseconds mymaster 30000 \\n \
+            acllog-max-len 128 \\n \
+            sentinel parallel-syncs mymaster 1 \\n \
+            sentinel failover-timeout mymaster 180000 \\n \
+            sentinel deny-scripts-reconfig yes \\n \
+            \" | sed -e \"s/^[ ]*//\" | tee /etc/sentinel.conf
+            && redis-server /etc/sentinel.conf --sentinel
+            "
+        depends_on:
+            - redis_master
+            - redis_replica
