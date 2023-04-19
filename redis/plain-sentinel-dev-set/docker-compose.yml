@@ -50,19 +50,18 @@ services:
         ports:
             - ${SENTINEL_PORT}:${SENTINEL_PORT}
         command: sh -c " echo -e \"
-            protected-mode no \\n \
-            port ${SENTINEL_PORT} \\n \
-            daemonize no \\n \
-            pidfile /var/run/redis-sentinel.pid \\n \
-            logfile \\\"\\\" \\n \
-            dir /tmp \\n \
-            sentinel monitor mymaster ${EXPOSE_IP} ${MASTER_PORT} 2 \\n \
-            sentinel down-after-milliseconds mymaster 30000 \\n \
-            acllog-max-len 128 \\n \
-            sentinel parallel-syncs mymaster 1 \\n \
-            sentinel failover-timeout mymaster 180000 \\n \
-            sentinel deny-scripts-reconfig yes \\n \
-            \" | sed -e \"s/^[ ]*//\" | tee /etc/sentinel.conf
+            protected-mode no ;
+            port ${SENTINEL_PORT} ;
+            daemonize no ;
+            pidfile /var/run/redis-sentinel.pid ;
+            dir /tmp ;
+            sentinel monitor mymaster ${EXPOSE_IP} ${MASTER_PORT} 2 ;
+            sentinel down-after-milliseconds mymaster 30000 ;
+            acllog-max-len 128 ;
+            sentinel parallel-syncs mymaster 1 ;
+            sentinel failover-timeout mymaster 180000 ;
+            sentinel deny-scripts-reconfig yes ;
+            \" | sed -e \"s/\;/\\n/g\" | sed -e \"s/^[ ]*//\" | tee /etc/sentinel.conf
             && redis-server /etc/sentinel.conf --sentinel
             "
         depends_on:
